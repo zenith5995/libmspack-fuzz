@@ -1,39 +1,28 @@
-FROM ubuntu:22.04
+FROM aflplusplus/aflplusplus
 
-ENV DEBIAN_FRONTEND=noninteractive
+RUN apt update && apt install -y git make build-essential clang
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    clang \
-    llvm \
-    git \
-    make \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    wget \
-    curl \
-    ca-certificates \
-    python3 \
-    && rm -rf /var/lib/apt/lists/*
+# Set working directory
+WORKDIR /libmspack
 
-# Install AFL++
-RUN git clone https://github.com/AFLplusplus/AFLplusplus.git && \
-    cd AFLplusplus && \
-    make distrib && \
-    make install && \
-    cd .. && rm -rf AFLplusplus
-
-# Clone libmspack and build it
+# Clone and build libmspack
 RUN git clone https://github.com/kyz/libmspack.git && \
     cd libmspack/libmspack && \
-    chmod +x rebuild.sh && \
     ./rebuild.sh && \
-    make && \
-    make install && \
-    cd ..
+    make
 
-# Working directory for harness, input, and fuzzing output
+# Copy fuzzing harness
 WORKDIR /src
+COPY fuzz_cab_open.c /src/fuzz_cab_open.c
+
+# Compile fuzz target (corrected paths!)
+RUN afl-clang-fast \
+    -I/libmspack/libmspack/libmspack -I/libmspack/libmspack/libmspack/mspack \
+    -o fuzz_cab_open \
+    fuzz_cab_open.c \
+    /libmspack/libmspack/libmspack/mspack/system.c \
+    /libmspack/libmspack/libmspack/mspack/cabd.c \
+    /libmspack/libmspack/libmspack/mspack/cabc.c \
+    /libmspack/libmspack/libmspack/mspack/mszipd.c \
+    /libmspack/libmspack/libmspack/mspack/qtmd.c \
+    /libmspack/libmspack/libmspack/mspack/lzxd.c

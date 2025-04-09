@@ -1,29 +1,33 @@
 @echo off
-REM Ensure findings dir exists
-if not exist findings (
-    mkdir findings
-)
+setlocal
 
-REM Start master fuzzer (compiles harness and starts -M instance)
-start "afl-master" docker run -it --rm ^
-  -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ^
-  -v "%cd%\seeds":/seeds ^
-  -v "%cd%\findings":/findings ^
-  -v "%cd%":/src ^
-  libmspack-fuzz bash -c "cd /src && afl-clang-fast -I/libmspack/libmspack -I/libmspack/libmspack/mspack -o fuzz_cab_open fuzz_cab_open.c /libmspack/libmspack/mspack/system.c /libmspack/libmspack/mspack/cabd.c /libmspack/libmspack/mspack/cabc.c /libmspack/libmspack/mspack/mszipd.c /libmspack/libmspack/mspack/qtmd.c /libmspack/libmspack/mspack/lzxd.c && afl-fuzz -M main -i /seeds -o /findings -- ./fuzz_cab_open @@"
+set SEEDS_DIR=%cd%\seeds
+set OUT_DIR=%cd%\findings
+set IMAGE=libmspack-fuzz
 
-REM Start secondary fuzzer 1
-start "afl-secondary-1" docker run -it --rm ^
-  -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ^
-  -v "%cd%\seeds":/seeds ^
-  -v "%cd%\findings":/findings ^
-  -v "%cd%":/src ^
-  libmspack-fuzz bash -c "cd /src && afl-fuzz -S fuzzer1 -i /seeds -o /findings -- ./fuzz_cab_open @@"
+echo [+] Starting AFL++ master and workers with auto-resume...
 
-REM Start secondary fuzzer 2
-start "afl-secondary-2" docker run -it --rm ^
+REM Master instance
+start "fuzzer-master" docker run -it --rm ^
   -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ^
-  -v "%cd%\seeds":/seeds ^
-  -v "%cd%\findings":/findings ^
-  -v "%cd%":/src ^
-  libmspack-fuzz bash -c "cd /src && afl-fuzz -S fuzzer2 -i /seeds -o /findings -- ./fuzz_cab_open @@"
+  -e AFL_AUTORESUME=1 ^
+  -v "%SEEDS_DIR%":/seeds ^
+  -v "%OUT_DIR%":/findings ^
+  %IMAGE% bash -c "afl-fuzz -M fuzzer-master -i /seeds -o /findings -- ./fuzz_cab_open @@"
+
+REM Worker instances
+start "fuzzer-worker1" docker run -it --rm ^
+  -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ^
+  -e AFL_AUTORESUME=1 ^
+  -v "%SEEDS_DIR%":/seeds ^
+  -v "%OUT_DIR%":/findings ^
+  %IMAGE% bash -c "afl-fuzz -S fuzzer-worker1 -i /seeds -o /findings -- ./fuzz_cab_open @@"
+
+start "fuzzer-worker2" docker run -it --rm ^
+  -e AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1 ^
+  -e AFL_AUTORESUME=1 ^
+  -v "%SEEDS_DIR%":/seeds ^
+  -v "%OUT_DIR%":/findings ^
+  %IMAGE% bash -c "afl-fuzz -S fuzzer-worker2 -i /seeds -o /findings -- ./fuzz_cab_open @@"
+
+endlocal
