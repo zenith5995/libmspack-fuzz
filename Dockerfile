@@ -5,6 +5,9 @@ RUN apt update && apt install -y git make build-essential clang
 # Set working directory
 WORKDIR /libmspack
 
+ENV CC = afl-clang-fast
+ENV CXX = afl-clang-fast++
+
 # Clone and build libmspack
 RUN git clone https://github.com/kyz/libmspack.git && \
     cd libmspack/libmspack && \
