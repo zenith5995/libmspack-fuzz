@@ -1,0 +1,24 @@
+# AFL++ output directories for CAB and CHM fuzzing
+findings_*/**/queue/
+findings_*/**/crashes/
+findings_*/**/hangs/
+findings_*/**/.synced
+
+# AFL++ metadata files (per fuzzer instance)
+findings_*/**/cmdline
+findings_*/**/fuzzer_stats
+findings_*/**/fuzzer_setup
+findings_*/**/fuzz_bitmap
+findings_*/**/target_hash
+findings_*/**/fastresume.bin
+findings_*/**/plot_data
+
+# Prevent accidental inclusion of large or temporary test files
+*.cab
+*.chm
+*.bin
+*.tmp
+
+# Ignore Docker artifacts if you use Docker volumes for output
+docker-output/
+docker-volume/
