@@ -1,0 +1,39 @@
+FROM aflplusplus/aflplusplus
+
+# Install required packages for building
+RUN apt update && apt install -y git make build-essential clang
+
+# Set environment variables for AddressSanitizer (ASAN) use and optimization
+ENV AFL_USE_ASAN=1
+ENV CFLAGS="-O1 -g -fsanitize=address"
+ENV CXXFLAGS="-O1 -g -fsanitize=address"
+
+# Set working directory for libmspack source
+WORKDIR /libmspack
+
+# Clone libmspack, build with AFL instrumentation and ASAN instrumentation.
+RUN git clone https://github.com/kyz/libmspack.git && \
+    cd libmspack/libmspack && \
+    ./rebuild.sh && \
+    make clean && \
+    make CC=afl-clang-fast CFLAGS="$CFLAGS"
+
+# Set working directory for the fuzz harness source
+WORKDIR /src
+# Copy the KWAJ fuzz harness source into the container.
+COPY fuzz_kwaj.c /src/fuzz_kwaj.c
+
+# Compile the fuzz target.
+# Both include paths are added so that the compiler finds all headers.
+RUN afl-clang-fast $CFLAGS \
+    -I/libmspack/libmspack/libmspack \
+    -I/libmspack/libmspack/libmspack/mspack \
+    -o fuzz_kwaj \
+    fuzz_kwaj.c \
+    /libmspack/libmspack/libmspack/mspack/system.c \
+    /libmspack/libmspack/libmspack/mspack/kwajd.c \
+    /libmspack/libmspack/libmspack/mspack/lzxd.c \
+    /libmspack/libmspack/libmspack/mspack/mszipd.c \
+    /libmspack/libmspack/libmspack/mspack/lzssd.c
+
+
